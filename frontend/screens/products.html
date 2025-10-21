@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Productos</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <nav>
+    <a href="index.html">Inicio</a>
+    <a href="products.html">Productos</a>
+    <a href="categories.html">Categorías</a>
+  </nav>
+
+  <h2>Gestión de Productos</h2>
+
+  <form id="productForm">
+    <input type="hidden" id="productId" />
+    <input type="text" id="name" placeholder="Nombre del producto" required />
+    <input type="number" id="price" placeholder="Precio" step="0.01" min="0" required />
+    <input type="number" id="stock" placeholder="Stock" min="0" required />
+    <select id="categoryId" required>
+      <option value="">Selecciona una categoría</option>
+    </select>
+    <button type="submit" id="submitBtn">Agregar</button>
+    <button type="button" id="cancelBtn" style="display:none; background-color: #95a5a6;">Cancelar</button>
+  </form>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Nombre</th>
+        <th>Precio</th>
+        <th>Stock</th>
+        <th>Categoría</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody id="productTable"></tbody>
+  </table>
+
+  <script src="../js/inventario.js"></script>
+  <script>
+    const API_URL = '/api/products';
+    let editingId = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadCategories();
+      loadProducts();
+    });
+
+    document.getElementById('productForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const data = {
+        name: document.getElementById('name').value,
+        price: parseFloat(document.getElementById('price').value),
+        stock: parseInt(document.getElementById('stock').value),
+        categoryId: document.getElementById('categoryId').value
+      };
+
+      try {
+        if (editingId) {
+          await updateProduct(editingId, data);
+        } else {
+          await createProduct(data);
+        }
+        resetForm();
+        loadProducts();
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
+    });
+
+    document.getElementById('cancelBtn').addEventListener('click', resetForm);
+
+    async function loadCategories() {
+      try {
+        const categories = await getCategories();
+        const select = document.getElementById('categoryId');
+        
+        categories.forEach(cat => {
+          const option = document.createElement('option');
+          option.value = cat._id;
+          option.textContent = cat.name;
+          select.appendChild(option);
+        });
+      } catch (error) {
+        console.error('Error cargando categorías:', error);
+      }
+    }
+
+    async function loadProducts() {
+      try {
+        const products = await getProducts();
+        const tbody = document.getElementById('productTable');
+        tbody.innerHTML = '';
+
+        products.forEach(prod => {
+          const row = tbody.insertRow();
+          const categoryName = prod.categoryId?.name || 'Sin categoría';
+          
+          row.innerHTML = `
+            <td>${prod.name}</td>
+            <td>$${prod.price.toFixed(2)}</td>
+            <td>${prod.stock}</td>
+            <td>${categoryName}</td>
+            <td>
+              <button onclick="editProduct('${prod._id}')" style="background-color: #3498db;">Editar</button>
+              <button onclick="deleteProduct('${prod._id}')" style="background-color: #e74c3c;">Eliminar</button>
+            </td>
+          `;
+        });
+      } catch (error) {
+        console.error('Error cargando productos:', error);
+      }
+    }
+
+    async function editProduct(id) {
+      try {
+        const products = await getProducts();
+        const product = products.find(p => p._id === id);
+        
+        if (product) {
+          document.getElementById('productId').value = id;
+          document.getElementById('name').value = product.name;
+          document.getElementById('price').value = product.price;
+          document.getElementById('stock').value = product.stock;
+          document.getElementById('categoryId').value = product.categoryId._id || product.categoryId;
+          document.getElementById('submitBtn').textContent = 'Actualizar';
+          document.getElementById('cancelBtn').style.display = 'inline-block';
+          editingId = id;
+        }
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
+    }
+
+    async function deleteProduct(id) {
+      if (!confirm('¿Estás seguro de eliminar este producto?')) return;
+      
+      try {
+        await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+        loadProducts();
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
+    }
+
+    function resetForm() {
+      document.getElementById('productForm').reset();
+      document.getElementById('productId').value = '';
+      document.getElementById('submitBtn').textContent = 'Agregar';
+      document.getElementById('cancelBtn').style.display = 'none';
+      editingId = null;
+    }
+  </script>
+</body>
+</html>

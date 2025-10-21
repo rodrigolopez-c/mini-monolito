@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Categorías</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <nav>
+    <a href="index.html">Inicio</a>
+    <a href="products.html">Productos</a>
+    <a href="categories.html">Categorías</a>
+  </nav>
+
+  <h2>Gestión de Categorías</h2>
+
+  <form id="categoryForm">
+    <input type="hidden" id="categoryId" />
+    <input type="text" id="name" placeholder="Nombre de la categoría" required />
+    <input type="text" id="description" placeholder="Descripción" />
+    <button type="submit" id="submitBtn">Agregar</button>
+    <button type="button" id="cancelBtn" style="display:none; background-color: #95a5a6;">Cancelar</button>
+  </form>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Nombre</th>
+        <th>Descripción</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody id="categoryTable"></tbody>
+  </table>
+
+  <script src="../js/inventario.js"></script>
+  <script>
+    const API_URL = '/api/categories';
+    let editingId = null;
+
+    document.addEventListener('DOMContentLoaded', loadCategories);
+
+    document.getElementById('categoryForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const data = {
+        name: document.getElementById('name').value,
+        description: document.getElementById('description').value
+      };
+
+      try {
+        if (editingId) {
+          await updateCategory(editingId, data);
+        } else {
+          await createCategory(data);
+        }
+        resetForm();
+        loadCategories();
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
+    });
+
+    document.getElementById('cancelBtn').addEventListener('click', resetForm);
+
+    async function loadCategories() {
+      try {
+        const categories = await getCategories();
+        const tbody = document.getElementById('categoryTable');
+        tbody.innerHTML = '';
+
+        categories.forEach(cat => {
+          const row = tbody.insertRow();
+          row.innerHTML = `
+            <td>${cat.name}</td>
+            <td>${cat.description || '-'}</td>
+            <td>
+              <button onclick="editCategory('${cat._id}')" style="background-color: #3498db;">Editar</button>
+              <button onclick="deleteCategory('${cat._id}')" style="background-color: #e74c3c;">Eliminar</button>
+            </td>
+          `;
+        });
+      } catch (error) {
+        console.error('Error cargando categorías:', error);
+      }
+    }
+
+    async function editCategory(id) {
+      try {
+        const categories = await getCategories();
+        const category = categories.find(c => c._id === id);
+        
+        if (category) {
+          document.getElementById('categoryId').value = id;
+          document.getElementById('name').value = category.name;
+          document.getElementById('description').value = category.description || '';
+          document.getElementById('submitBtn').textContent = 'Actualizar';
+          document.getElementById('cancelBtn').style.display = 'inline-block';
+          editingId = id;
+        }
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
+    }
+
+    async function deleteCategory(id) {
+      if (!confirm('¿Estás seguro de eliminar esta categoría?')) return;
+      
+      try {
+        await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+        loadCategories();
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
+    }
+
+    function resetForm() {
+      document.getElementById('categoryForm').reset();
+      document.getElementById('categoryId').value = '';
+      document.getElementById('submitBtn').textContent = 'Agregar';
+      document.getElementById('cancelBtn').style.display = 'none';
+      editingId = null;
+    }
+  </script>
+</body>
+</html>
